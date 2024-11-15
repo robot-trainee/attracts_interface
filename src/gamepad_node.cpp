@@ -10,43 +10,61 @@ Gamepad::Gamepad() : Node("gamepad_node")
     cmd_pub_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("cmd_vel", 10);
     joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
     joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>("joy", 10, std::bind(&Gamepad::JoyCB, this, std::placeholders::_1));
+    using namespace std::chrono_literals;
+    timer_ = this->create_wall_timer(25ms, std::bind(&Gamepad::TimerCB, this));
 }
 
 void Gamepad::JoyCB(const sensor_msgs::msg::Joy::SharedPtr msg)
 {
-    double vec_x = 1.0 * msg->axes.at(1);
-    double vec_y = -1.0 * msg->axes.at(0);
+    joy_msg_ = *msg;
+}
+
+void Gamepad::TimerCB()
+{
+    double vec_x = 1.0 * joy_msg_.axes.at(1);
+    double vec_y = -1.0 * joy_msg_.axes.at(0);
     double theta = std::atan2(vec_y, vec_x);
     double norm = std::sqrt(std::pow(vec_x, 2) + std::pow(vec_y, 2));
 
-    double max_omni_vel = 0.1;
-    double max_omni_rot_vel = 0.05;
-    double max_yaw_vel = 0.05;
-    double max_pitch_vel = 0.02;
-    std_msgs::msg::Float32MultiArray cmd_vel;
+    std_msgs::msg::Float32MultiArray cmd_vel; // rad/s
     cmd_vel.data.resize(6);
-    cmd_vel.data.at(0) = max_omni_vel * norm * std::sin(theta - M_PI * 0.25);
-    cmd_vel.data.at(1) = max_omni_vel * norm * std::sin(theta + M_PI * 0.25);
-    cmd_vel.data.at(2) = max_omni_vel * norm * std::sin(theta + M_PI * 1.25);
-    cmd_vel.data.at(3) = max_omni_vel * norm * std::sin(theta - M_PI * 1.25);
+    // (m/s) * (rad) / (wheel_d) = rad/s
+    cmd_vel.data.at(0) = max_omni_vel_ * norm * std::sin(theta - M_PI * 0.25) * (2.0 * M_PI) / (M_PI * wheel_d_);
+    cmd_vel.data.at(1) = max_omni_vel_ * norm * std::sin(theta + M_PI * 0.25) * (2.0 * M_PI) / (M_PI * wheel_d_);
+    cmd_vel.data.at(2) = max_omni_vel_ * norm * std::sin(theta + M_PI * 1.25) * (2.0 * M_PI) / (M_PI * wheel_d_);
+    cmd_vel.data.at(3) = max_omni_vel_ * norm * std::sin(theta - M_PI * 1.25) * (2.0 * M_PI) / (M_PI * wheel_d_);
+    // (deg/s) * (body/wheel) * (rad) / (360)
     for (int i = 0; i < 4; i++)
     {
-        if (msg->buttons.at(4))
+        if (joy_msg_.buttons.at(4))
         {
-            cmd_vel.data.at(i) += max_omni_rot_vel;
+            cmd_vel.data.at(i) += max_omni_rot_vel_ * (body_d_ / wheel_d_) * (2.0 * M_PI) / 360.0;
         }
-        if (msg->buttons.at(5))
+        if (joy_msg_.buttons.at(5))
         {
-            cmd_vel.data.at(i) -= max_omni_rot_vel;
+            cmd_vel.data.at(i) -= max_omni_rot_vel_ * (body_d_ / wheel_d_) * (2.0 * M_PI) / 360.0;
         }
     }
-    cmd_vel.data.at(4) = -max_yaw_vel * msg->axes.at(3);
-    cmd_vel.data.at(5) = max_pitch_vel * msg->axes.at(4);
+    // (deg/s) * (rad/deg) * ギア比
+    cmd_vel.data.at(4) = -joy_msg_.axes.at(3) * max_yaw_rot_vel_ * (M_PI / 180.0) * (25.0 / 38.0);
+    cmd_vel.data.at(5) = joy_msg_.axes.at(4) * max_pitch_rot_vel_ * (M_PI / 180.0) * (29.0 / 34.0);
     cmd_pub_->publish(cmd_vel);
 
+    double joy_freq = 40.0; // Hz
     for (int i = 0; i < 6; i++)
     {
-        positions_.at(i) += cmd_vel.data.at(i);
+        if (i == 4)
+        {
+            positions_.at(i) += (cmd_vel.data.at(i) / joy_freq) * (38.0 / 25.0);
+        }
+        else if (i == 5)
+        {
+            positions_.at(i) += (cmd_vel.data.at(i) / joy_freq) * (34.0 / 29.0);
+        }
+        else
+        {
+            positions_.at(i) += cmd_vel.data.at(i) / joy_freq;
+        }
     }
 
     if (positions_.at(5) < -M_PI / 12)
