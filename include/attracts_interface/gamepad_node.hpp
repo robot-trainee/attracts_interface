@@ -14,6 +14,8 @@ public:
 private:
     void JoyCB(const sensor_msgs::msg::Joy::SharedPtr msg);
     void TimerCB();
+    void UpdateCmdVel(std_msgs::msg::Float32MultiArray& cmd_vel);
+    void UpdatePositions(const std_msgs::msg::Float32MultiArray& cmd_vel);
 
 private:
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr cmd_pub_;
@@ -27,7 +29,7 @@ private:
     double max_omni_vel_ = 0.35; // m/s
     double max_omni_rot_vel_ = 60.0; // deg/s
     double max_yaw_rot_vel_ = 120.0; // deg/s ギア比38/25
-    double max_pitch_rot_vel_ = 45.0; // deg/s ギア比34/29
+    double max_pitch_rot_vel_ = 120.0; // deg/s ギア比34/29
     sensor_msgs::msg::Joy joy_msg_;
     std::array<double, 6> positions_;
 };

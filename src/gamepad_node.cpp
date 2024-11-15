@@ -21,12 +21,21 @@ void Gamepad::JoyCB(const sensor_msgs::msg::Joy::SharedPtr msg)
 
 void Gamepad::TimerCB()
 {
+    std_msgs::msg::Float32MultiArray cmd_vel; // rad/s
+    if (joy_msg_.axes.size() > 0 && joy_msg_.buttons.size() > 0)
+    {
+        UpdateCmdVel(cmd_vel);
+        UpdatePositions(cmd_vel);
+    }
+}
+
+void Gamepad::UpdateCmdVel(std_msgs::msg::Float32MultiArray& cmd_vel)
+{
     double vec_x = 1.0 * joy_msg_.axes.at(1);
     double vec_y = -1.0 * joy_msg_.axes.at(0);
     double theta = std::atan2(vec_y, vec_x);
     double norm = std::sqrt(std::pow(vec_x, 2) + std::pow(vec_y, 2));
 
-    std_msgs::msg::Float32MultiArray cmd_vel; // rad/s
     cmd_vel.data.resize(6);
     // (m/s) * (rad) / (wheel_d) = rad/s
     cmd_vel.data.at(0) = max_omni_vel_ * norm * std::sin(theta - M_PI * 0.25) * (2.0 * M_PI) / (M_PI * wheel_d_);
@@ -49,7 +58,10 @@ void Gamepad::TimerCB()
     cmd_vel.data.at(4) = -joy_msg_.axes.at(3) * max_yaw_rot_vel_ * (M_PI / 180.0) * (25.0 / 38.0);
     cmd_vel.data.at(5) = joy_msg_.axes.at(4) * max_pitch_rot_vel_ * (M_PI / 180.0) * (29.0 / 34.0);
     cmd_pub_->publish(cmd_vel);
+}
 
+void Gamepad::UpdatePositions(const std_msgs::msg::Float32MultiArray& cmd_vel)
+{
     double joy_freq = 40.0; // Hz
     for (int i = 0; i < 6; i++)
     {
