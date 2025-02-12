@@ -17,10 +17,12 @@ def generate_launch_description():
         name='gamepad_node',
         output='screen',
         emulate_tty=True,
-        # parameters=[{
-        #     'max_trans_vel': 0.2,
-        #     'max_rot_vel': 0.4,
-        # }],
+        parameters=[{
+            'max_omni_vel': 0.4, # m/s
+            'max_omni_rot_vel': 1.0, # rad/s
+            'max_yaw_rot_vel': 2.0, # rad/s
+            'max_pitch_rot_vel': 2.0, # rad/s
+        }],
     )
 
     ld.add_action(joy_node)
