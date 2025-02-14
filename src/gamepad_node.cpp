@@ -42,7 +42,7 @@ void Gamepad::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
     }
     else if (joy_msg_.buttons.at(7) == 1)
     {
-        cmd.chassis_vel_z.data = -1,0 * max_omni_rot_vel_;
+        cmd.chassis_vel_z.data = -1.0 * max_omni_rot_vel_;
     }
     else
     {
