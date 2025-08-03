@@ -29,8 +29,19 @@ ament_target_dependencies(gamepad_node
   rabcl
 )
 
+add_executable(game_client_node
+  src/game_client_node.cpp
+)
+ament_target_dependencies(game_client_node
+  rclcpp
+  sensor_msgs
+  attracts_msgs
+  rabcl
+)
+
 install(TARGETS
   gamepad_node
+  game_client_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
