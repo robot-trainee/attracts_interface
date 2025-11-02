@@ -86,7 +86,8 @@ void GameClient::UpdatePositions(const attracts_msgs::msg::AttractsCommand& cmd)
     std::array<double, 6> joint_vel;
     omni_drive.CalcVel(
         cmd.chassis_vel.x, cmd.chassis_vel.y, cmd.chassis_vel.z,
-        joint_vel.at(0), joint_vel.at(1), joint_vel.at(2), joint_vel.at(3));
+        joint_vel.at(0), joint_vel.at(1), joint_vel.at(2), joint_vel.at(3),
+        positions_.at(4));
     positions_.at(4) = cmd.yaw_pos;
     positions_.at(5) = cmd.pitch_pos;
 
