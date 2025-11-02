@@ -34,65 +34,66 @@ void GameClient::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
     // --- 足回り
     // 並進
     if (game_data_input_msg_.key_w) {
-        cmd.chassis_vel_x.data += max_omni_vel_;
+        cmd.chassis_vel.x = max_omni_vel_;
     }
     if (game_data_input_msg_.key_s) {
-        cmd.chassis_vel_x.data -= max_omni_vel_;
+        cmd.chassis_vel.x = -max_omni_vel_;
     }
     if (game_data_input_msg_.key_a) {
-        cmd.chassis_vel_y.data += max_omni_vel_;
+        cmd.chassis_vel.y = max_omni_vel_;
     }
     if (game_data_input_msg_.key_d) {
-        cmd.chassis_vel_y.data -= max_omni_vel_;
+        cmd.chassis_vel.y = -max_omni_vel_;
     }
     // 回転
-    cmd.chassis_vel_z.data =
-        max_omni_rot_vel_ * (double)game_data_input_msg_.mouse_delta_x / 100.0;
+    cmd.chassis_vel.z = 0.0;
 
     // --- 砲塔
     // yaw
-    if (game_data_input_msg_.mouse_left_button) {
-        cmd.yaw_vel.data += max_yaw_rot_vel_;
-    }
-    if (game_data_input_msg_.mouse_right_button) {
-        cmd.yaw_vel.data -= max_yaw_rot_vel_;
+    cmd.yaw_pos =
+        positions_.at(4) + (double)game_data_input_msg_.mouse_delta_x / 100.0;
+    cmd.yaw_pos = std::fmod(cmd.yaw_pos, 2.0 * M_PI);
+    if (cmd.yaw_pos < 0) {
+        cmd.yaw_pos += 2.0 * M_PI;
     }
     // pitch
-    cmd.pitch_vel.data =
-        max_yaw_rot_vel_ * (double)game_data_input_msg_.mouse_delta_y / 100.0;
+    cmd.pitch_pos =
+        positions_.at(5) + (double)game_data_input_msg_.mouse_delta_y / 100.0;
+    if (cmd.pitch_pos < -M_PI / 12)
+    {
+        cmd.pitch_pos = -M_PI / 12;
+    }
+    if (cmd.pitch_pos > M_PI / 6)
+    {
+        cmd.pitch_pos = M_PI / 6;
+    }
+    // 前回指令値を保存
+    positions_.at(4) = cmd.yaw_pos;
+    positions_.at(5) = cmd.pitch_pos;
 
     // --- 動作モード
-    cmd.fire_mode.data = 0;
-    cmd.load_mode.data = 0;
-    cmd.speed_mode.data = 0;
-    cmd.chassis_mode.data = 0;
+    cmd.fire_mode = 0;
+    cmd.load_mode = 0;
+    cmd.speed_mode = 0;
+    cmd.chassis_mode = 0;
 
     cmd_pub_->publish(cmd);
 }
 
-void GameClient::UpdatePositions(const attracts_msgs::msg::AttractsCommand& cmd_vel)
+void GameClient::UpdatePositions(const attracts_msgs::msg::AttractsCommand& cmd)
 {
     rabcl::OmniDrive omni_drive(wheel_d_, body_d_);
     std::array<double, 6> joint_vel;
     omni_drive.CalcVel(
-        cmd_vel.chassis_vel_x.data, cmd_vel.chassis_vel_y.data, cmd_vel.chassis_vel_z.data,
+        cmd.chassis_vel.x, cmd.chassis_vel.y, cmd.chassis_vel.z,
         joint_vel.at(0), joint_vel.at(1), joint_vel.at(2), joint_vel.at(3));
-    joint_vel.at(4) = cmd_vel.yaw_vel.data;
-    joint_vel.at(5) = cmd_vel.pitch_vel.data;
+    positions_.at(4) = cmd.yaw_pos;
+    positions_.at(5) = cmd.pitch_pos;
 
     double game_client_freq = 20.0; // Hz
     for (int i = 0; i < 6; i++)
     {
         positions_.at(i) += joint_vel.at(i) / game_client_freq;
-    }
-
-    if (positions_.at(5) < -M_PI / 12)
-    {
-        positions_.at(5) = -M_PI / 12;
-    }
-    if (positions_.at(5) > M_PI / 6)
-    {
-        positions_.at(5) = M_PI / 6;
     }
 
     sensor_msgs::msg::JointState joint_state;

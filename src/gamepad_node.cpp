@@ -23,7 +23,7 @@ void Gamepad::JoyCB(const sensor_msgs::msg::Joy::SharedPtr msg)
 
 void Gamepad::TimerCB()
 {
-    attracts_msgs::msg::AttractsCommand cmd; // rad/s
+    attracts_msgs::msg::AttractsCommand cmd;
     if (joy_msg_.axes.size() > 0 && joy_msg_.buttons.size() > 0)
     {
         UpdateCmdVel(cmd);
@@ -33,59 +33,77 @@ void Gamepad::TimerCB()
 
 void Gamepad::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
 {
-    cmd.chassis_vel_x.data = max_omni_vel_ * joy_msg_.axes.at(1);
-    cmd.chassis_vel_y.data = max_omni_vel_ * joy_msg_.axes.at(0);
-
+    // --- 足回り
+    // 並進
+    if (joy_msg_.axes.at(7) == 1.0) {
+        cmd.chassis_vel.x = max_omni_vel_;
+    }
+    if (joy_msg_.axes.at(7) == -1.0) {
+        cmd.chassis_vel.x = -max_omni_vel_;
+    }
+    if (joy_msg_.axes.at(6) == 1.0) {
+        cmd.chassis_vel.y = max_omni_vel_;
+    }
+    if (joy_msg_.axes.at(6) == -1.0) {
+        cmd.chassis_vel.y = -max_omni_vel_;
+    }
+    // 回転
     if (joy_msg_.buttons.at(6) == 1)
     {
-        cmd.chassis_vel_z.data = max_omni_rot_vel_;
+        cmd.chassis_vel.z = max_omni_rot_vel_;
     }
     else if (joy_msg_.buttons.at(7) == 1)
     {
-        cmd.chassis_vel_z.data = -1.0 * max_omni_rot_vel_;
+        cmd.chassis_vel.z = -1.0 * max_omni_rot_vel_;
     }
-    else
+
+    // --- 砲塔
+    // yaw
+    cmd.yaw_pos = positions_.at(4) + joy_msg_.axes.at(3) / 10.0;
+    cmd.yaw_pos = std::fmod(cmd.yaw_pos, 2.0 * M_PI);
+    if (cmd.yaw_pos < 0) {
+        cmd.yaw_pos += 2.0 * M_PI;
+    }
+    // pitch
+    cmd.pitch_pos = positions_.at(5) + joy_msg_.axes.at(4) / 10.0;
+    if (cmd.pitch_pos < -M_PI / 12)
     {
-        cmd.chassis_vel_z.data = 0.0;
+        cmd.pitch_pos = -M_PI / 12;
     }
+    if (cmd.pitch_pos > M_PI / 6)
+    {
+        cmd.pitch_pos = M_PI / 6;
+    }
+    // 前回指令値を保存
+    positions_.at(4) = cmd.yaw_pos;
+    positions_.at(5) = cmd.pitch_pos;
 
-    cmd.yaw_vel.data = max_yaw_rot_vel_ * joy_msg_.axes.at(3);
-    cmd.pitch_vel.data = max_pitch_rot_vel_ * joy_msg_.axes.at(4);
-
-    cmd.fire_mode.data = joy_msg_.buttons.at(5);
-    cmd.load_mode.data = joy_msg_.buttons.at(4);
+    // --- 動作モード
+    cmd.fire_mode = joy_msg_.buttons.at(5);
+    cmd.load_mode = joy_msg_.buttons.at(4);
     if (joy_msg_.buttons.at(0) == 1)
     {
-        cmd.load_mode.data = 2;
+        cmd.load_mode = 2;
     }
-    cmd.speed_mode.data = 0;
-    cmd.chassis_mode.data = 0;
+    cmd.speed_mode = 0;
+    cmd.chassis_mode = 0;
     cmd_pub_->publish(cmd);
 }
 
-void Gamepad::UpdatePositions(const attracts_msgs::msg::AttractsCommand& cmd_vel)
+void Gamepad::UpdatePositions(const attracts_msgs::msg::AttractsCommand& cmd)
 {
     rabcl::OmniDrive omni_drive(wheel_d_, body_d_);
     std::array<double, 6> joint_vel;
     omni_drive.CalcVel(
-        cmd_vel.chassis_vel_x.data, cmd_vel.chassis_vel_y.data, cmd_vel.chassis_vel_z.data,
+        cmd.chassis_vel.x, cmd.chassis_vel.y, cmd.chassis_vel.z,
         joint_vel.at(0), joint_vel.at(1), joint_vel.at(2), joint_vel.at(3));
-    joint_vel.at(4) = cmd_vel.yaw_vel.data;
-    joint_vel.at(5) = cmd_vel.pitch_vel.data;
+    positions_.at(4) = cmd.yaw_pos;
+    positions_.at(5) = cmd.pitch_pos;
 
     double joy_freq = 40.0; // Hz
     for (int i = 0; i < 6; i++)
     {
         positions_.at(i) += joint_vel.at(i) / joy_freq;
-    }
-
-    if (positions_.at(5) < -M_PI / 12)
-    {
-        positions_.at(5) = -M_PI / 12;
-    }
-    if (positions_.at(5) > M_PI / 6)
-    {
-        positions_.at(5) = M_PI / 6;
     }
 
     sensor_msgs::msg::JointState joint_state;
