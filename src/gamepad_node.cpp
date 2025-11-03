@@ -86,7 +86,7 @@ void Gamepad::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
         cmd.load_mode = 2;
     }
     cmd.speed_mode = 0;
-    cmd.chassis_mode = 0;
+    cmd.chassis_mode = joy_msg_.buttons.at(1);
     cmd_pub_->publish(cmd);
 }
 
