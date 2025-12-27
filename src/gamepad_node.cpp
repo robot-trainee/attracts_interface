@@ -48,12 +48,10 @@ void Gamepad::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
         cmd.chassis_vel.y = -max_omni_vel_;
     }
     // 回転
-    if (joy_msg_.buttons.at(6) == 1)
-    {
+    if (joy_msg_.buttons.at(6) == 1) {
         cmd.chassis_vel.z = max_omni_rot_vel_;
     }
-    else if (joy_msg_.buttons.at(7) == 1)
-    {
+    else if (joy_msg_.buttons.at(7) == 1) {
         cmd.chassis_vel.z = -1.0 * max_omni_rot_vel_;
     }
 
