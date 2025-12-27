@@ -46,7 +46,11 @@ void GameClient::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
         cmd.chassis_vel.y = -max_omni_vel_;
     }
     // 回転
-    cmd.chassis_vel.z = 0.0;
+    if (game_data_input_msg_.key_z) {
+        cmd.chassis_vel.z = max_omni_rot_vel_;
+    } else if (game_data_input_msg_.key_c) {
+        cmd.chassis_vel.z = -1.0 * max_omni_rot_vel_;
+    }
 
     // --- 砲塔
     // yaw
@@ -72,10 +76,19 @@ void GameClient::UpdateCmdVel(attracts_msgs::msg::AttractsCommand& cmd)
     positions_.at(5) = cmd.pitch_pos;
 
     // --- 動作モード
-    cmd.fire_mode = 0;
-    cmd.load_mode = 0;
+    if (game_data_input_msg_.mouse_right_button) {
+        cmd.fire_mode = 1;
+    }
+    if (game_data_input_msg_.mouse_left_button) {
+        cmd.load_mode = 1;
+    }
+    if (game_data_input_msg_.key_r) {
+        cmd.load_mode = 2;
+    }
     cmd.speed_mode = 0;
-    cmd.chassis_mode = 0;
+    if (game_data_input_msg_.key_shift) {
+        cmd.chassis_mode = 1;
+    }
 
     cmd_pub_->publish(cmd);
 }
